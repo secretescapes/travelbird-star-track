@@ -3,10 +3,32 @@
     [org.httpkit.server :refer [run-server]]
     [taoensso.timbre :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report)]
-     [star-track.utils :refer :all])
+     [star-track.utils :refer :all]
+     [compojure.route :as route]
+     [compojure.core :refer [defroutes GET POST DELETE ANY context]]
+     [compojure.handler :refer [site]])
+  
   (:gen-class))
 
-(defn app [req]
+(defn redirect-request [req]
+  {:status  204
+   :headers {"Content-Type" "text/html"
+             "Pragma" "no-cache"
+             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
+             "Expires" "0"
+             }})
+
+(defn img-request [req]
+  ;; lets be dump right now.
+  {:status  204
+   :headers {"Content-Type" "text/html"
+             "Pragma" "no-cache"
+             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
+             "Expires" "0"
+             }}
+  )
+
+(defn log-request [req]
   ; :remote-addr :headers :async-channel :server-port :content-length 
   ; :websocket? :content-type :character-encoding :uri :server-name :query-string :body :scheme :request-method
   (debug (select-keys req [:headers]))
@@ -20,13 +42,22 @@
 
   (info data)
   {:status  204
-   :headers {"Content-Type" "text/html"}}))
+   :headers {"Content-Type" "text/html"
+             "Pragma" "no-cache"
+             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
+             }}))
 
 (defonce server (atom nil))
 
+(defroutes app-routes
+  (GET "/" [] log-request)
+  (GET "/r" [] redirect-request)
+  (GET "/pixel.gif" [] log-request)
+  (route/not-found "<p>Page not found.</p>"))
+
 (defn start-up
   [{:keys [port] :or {port 8080}}]
-  (reset! server (run-server app {:port port}))
+  (reset! server (run-server (site #'app-routes) {:port port}))
   )
 
 (defn stop-server []
