@@ -11,7 +11,9 @@
   ; :websocket? :content-type :character-encoding :uri :server-name :query-string :body :scheme :request-method
   (debug (select-keys req [:headers]))
 
-  (let [data (-> (select-keys req [:remote-add :uri :server-name :query-string :request-method :headers])
+  (let [data (-> (select-keys req [:uri :server-name :query-string :request-method :headers])
+                  (assoc :qs (:query-string req))
+                  (assoc :ip (:remote-addr req))
                   (assoc :host (get-in req [:headers "host"]))
                   (assoc :ua (get-in req [:headers "user-agent"]))
                   (assoc :refer (get-in req [:headers "referer"])))]
