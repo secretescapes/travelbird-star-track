@@ -33,6 +33,6 @@ def deploy(restart=True):
 
   if restart:
 
-    sudo("supervisorctl restart prod_startracker")
+    sudo("supervisorctl restart prod_startrack")
 
     # put('target/%s' % jar_file, "new-" + jar_file  )

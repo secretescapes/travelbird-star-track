@@ -32,7 +32,7 @@
 (defn log-request [req]
   ; :remote-addr :headers :async-channel :server-port :content-length 
   ; :websocket? :content-type :character-encoding :uri :server-name :query-string :body :scheme :request-method
-  (debug (select-keys req [:headers]))
+  ; (debug (select-keys req [:headers]))
 
   (let [data (-> (select-keys req [:uri :server-name :query-string :request-method :headers])
                   (assoc :qs (:query-string req))
