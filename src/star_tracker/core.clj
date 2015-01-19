@@ -1,4 +1,4 @@
-(ns star-track.core
+(ns star-tracker.core
   (:require 
     [org.httpkit.server :refer [run-server]]
     [taoensso.timbre :as timbre
@@ -39,13 +39,12 @@
                   (assoc :host (get-in req [:headers "host"]))
                   (assoc :ua (get-in req [:headers "user-agent"]))
                   (assoc :refer (get-in req [:headers "referer"])))]
-
-  (info data)
-  {:status  204
-   :headers {"Content-Type" "text/html"
-             "Pragma" "no-cache"
-             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
-             }}))
+    (info data)
+    {:status  204
+     :headers {"Content-Type" "text/html"
+               "Pragma" "no-cache"
+               "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
+               }}))
 
 (defonce server (atom nil))
 
@@ -70,5 +69,5 @@
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (let [settings {}]
+  (let [settings {:port (Integer/parseInt (first args))}]
   (start-up settings)))

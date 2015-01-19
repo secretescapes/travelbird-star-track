@@ -1,4 +1,4 @@
-(defproject star-track "0.1.0-SNAPSHOT"
+(defproject star-tracker "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -11,6 +11,8 @@
     [http-kit "2.1.16"]
     [com.taoensso/timbre "3.3.1-1cd4b70"]
     ]
-  :main ^:skip-aot star-track.core
+  
+  :main ^:skip-aot star-tracker.core
+  :uberjar-name "star-tracker.jar"
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
