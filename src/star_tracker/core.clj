@@ -3,7 +3,8 @@
     [org.httpkit.server :refer [run-server]]
     [taoensso.timbre :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report)]
-     [star-track.utils :refer :all]
+     [star-tracker.utils :refer :all]
+     [star-tracker.log :as log-base]
      [compojure.route :as route]
      [compojure.core :refer [defroutes GET POST DELETE ANY context]]
      [compojure.handler :refer [site]])
@@ -70,4 +71,5 @@
   "I don't do a whole lot ... yet."
   [& args]
   (let [settings {:port (Integer/parseInt (first args))}]
+    (reset! timbre/config log-base/log-config )
   (start-up settings)))
