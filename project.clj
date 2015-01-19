@@ -12,7 +12,7 @@
     [com.taoensso/timbre "3.3.1-1cd4b70"]
     [midje "1.7.0-SNAPSHOT"]
     ]
-  
+  :java-agents [[com.newrelic.agent.java/newrelic-agent "2.19.0"]]
   :main ^:skip-aot star-tracker.core
   :uberjar-name "star-tracker.jar"
   :target-path "target/%s"
