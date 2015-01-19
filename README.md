@@ -1,32 +1,16 @@
-# star-track
+# star-track [![Build Status](https://travis-ci.org/bcambel/star-track.svg?branch=master)](https://travis-ci.org/bcambel/star-track)
 
-FIXME: description
+Track/Collect events
 
 ## Installation
 
-Download from http://example.com/FIXME.
+`lein run` will install all the lein dependencies
 
 ## Usage
 
 FIXME: explanation
 
-    $ java -jar star-track-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
+    $ java -jar star-tracker.jar [port]
 
 ## License
 
