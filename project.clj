@@ -1,4 +1,4 @@
-(defproject star-tracker "0.1.1"
+(defproject star-tracker "0.1.1-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
@@ -13,7 +13,7 @@
     [midje "1.7.0-SNAPSHOT"]
     ]
   :java-agents [[com.newrelic.agent.java/newrelic-agent "2.19.0"]]
-  :main ^:skip-aot star-tracker.core
+  :main star-tracker.core
   :uberjar-name "star-tracker.jar"
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
