@@ -1,76 +1,87 @@
 (ns star-tracker.core
   (:require 
-    [clojure.java.io :as io]
-    [org.httpkit.server :refer [run-server]]
-    [taoensso.timbre :as timbre
-           :refer (log  trace  debug  info  warn  error  fatal  report)]
-     [star-tracker.utils :refer :all]
-     [star-tracker.log :as log-base]
-     [compojure.route :as route]
-     [compojure.core :refer [defroutes GET POST DELETE ANY context]]
-     [compojure.handler :refer [site]])
+     [clojure.java.io :as io]
+     [org.httpkit.server          :refer [run-server]]
+     [star-tracker.utils           :refer :all]
+     [star-tracker.log             :as log-base]
+     [ring.adapter.jetty           :refer [run-jetty]]
+     [cheshire.core                :refer :all]
+     [compojure.route              :as route]
+     [compojure.core               :refer [defroutes GET POST DELETE ANY context]]
+     [compojure.handler            :refer [site]]
+     [taoensso.timbre              :as timbre
+           :refer (log  trace  debug  info  warn  error  fatal  report)])
   (:import [org.apache.commons.io FileUtils])
   (:gen-class))
 
+; http-kit keys
+; ==========
 ; :remote-addr :headers :async-channel :server-port :content-length 
 ; :websocket? :content-type :character-encoding :uri :server-name :query-string :body :scheme :request-method
 ; (debug (select-keys req [:headers]))
+; [org.httpkit.server :refer [run-server]]
+; (reset! server (run-server (site #'app-routes) {:port port}))
 
- (def pixel-img (FileUtils/readFileToByteArray (io/file "1x1.png")))
+(def settings (atom {:json true}))
+
+(defonce server (atom nil))
+
+(def default-headers {"Expires" "0"
+                      "Pragma" "no-cache"
+                      "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"})
+
+(def image-headers (merge {"Content-Type" "image/png"} default-headers))
+
+(def pixel-img (FileUtils/readFileToByteArray (io/file "1x1.png")))
 
 (defn build-log-map
   [req]
   (try 
-    (-> 
-      (select-keys req [:uri :server-name :query-string :request-method :headers])
-          (assoc :qs (:query-string req))
-          (assoc :ip [(:remote-addr req) (get-in req [:headers "x-real-ip"])])
-          (assoc :host (get-in req [:headers "host"]))
-          (assoc :ua (get-in req [:headers "user-agent"]))
-          (assoc :refer (get-in req [:headers "referer"])))
+      {:qs (:query-string req)
+       :ip (remove nil? [(:remote-addr req) (get-in req [:headers "x-real-ip"])])
+       :host (get-in req [:headers "host"])
+       :ua (get-in req [:headers "user-agent"])
+       :refer (get-in req [:headers "referer"])
+       :m (:request-method req) ; for debugging purposes
+       :serv (:server-name req)
+       :uri (:uri req)
+       :headers (:headers req) ; in near future remove duplicates
+     }
     (catch Throwable t (error t))))
+
+(defn log-request
+  [req]
+  (let [data (build-log-map req)]
+    (info "JSON" 
+      data
+      ; (generate-string data)
+      )))
 
 (defn redirect-request [req]
   {:status  204
-   :headers {"Content-Type" "text/html"
-             "Pragma" "no-cache"
-             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
-             "Expires" "0"
-             }})
+   :headers default-headers})
 
 (defn img-request [req]
-  ;; lets be dump right now.
-  (info (build-log-map req))
+  (log-request req)
   {:status  200
     :body (java.io.ByteArrayInputStream. pixel-img)
-   :headers {"Content-Type" "text/html"
-             "Pragma" "no-cache"
-             "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
-             "Expires" "0"
-             }})
+   :headers image-headers})
 
-
-(defn log-request [req]
-  
-  
-    (info (build-log-map req))
-    {:status  204
-     :headers {"Content-Type" "text/html"
-               "Pragma" "no-cache"
-               "Cache-Control" "private, no-cache, no-cache=Set-Cookie, proxy-revalidate"
-               }})
-
-(defonce server (atom nil))
+(defn base-request [req]
+  (info (build-log-map req))
+  {:status  204
+   :headers default-headers})
 
 (defroutes app-routes
-  (GET "/" [] log-request)
+  (GET "/" [] base-request)
   (GET "/r" [] redirect-request)
   (GET "/pixel.gif" [] img-request)
   (route/not-found "<p>Page not found.</p>"))
 
 (defn start-up
   [{:keys [port] :or {port 8080}}]
-    (reset! server (run-server (site #'app-routes) {:port port}))
+  ; (reset! server (run-jetty (site #'app-routes) {:port port :join? true}))
+  (reset! server (run-server (site #'app-routes) {:port port}))
     (info "Listening events now!...")
   )
 

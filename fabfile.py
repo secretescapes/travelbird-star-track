@@ -1,4 +1,4 @@
-from fabric.api import run, sudo, env, task, local, put
+from fabric.api import run, sudo, env, task, local, put, parallel
 from fabric.context_managers import cd
 import logging
 from fabtools import require
@@ -10,11 +10,11 @@ env.use_ssh_config = True
 folder = "/var/www/star-track"
 
 
-@task
-def compile():
-  local("lein uberjar")
+# @task
+# def compile():
+#   local("lein uberjar")
 
-@task
+@parallel
 def deploy(restart=True):
   sudo("mkdir -p {}".format(folder))
 
@@ -23,14 +23,14 @@ def deploy(restart=True):
   img = "1x1.png"
 
   with cd(folder):
-    put(img,img )
+    put(img,img)
     put("target/uberjar/star-tracker.jar", new_jar)
     sudo("mv {} {}".format(new_jar, jar_file))
 
   put('config/supervisor/startrack.conf', '/etc/supervisor/conf.d/startrack.conf')
   
   sudo("supervisorctl reread")
-
+  sudo("supervisorctl update")
   if restart:
     sudo("supervisorctl restart prod_startrack")
 
