@@ -14,6 +14,12 @@ folder = "/var/www/star-track"
 # def compile():
 #   local("lein uberjar")
 
+@task
+@parallel
+def runx(command):
+    run("{}".format(command))
+
+@task
 @parallel
 def deploy(restart=True):
   sudo("mkdir -p {}".format(folder))

@@ -9,6 +9,9 @@
      [compojure.route              :as route]
      [compojure.core               :refer [defroutes GET POST DELETE ANY context]]
      [compojure.handler            :refer [site]]
+     [clojure.core.async :as async :refer [go >! chan]]
+     [com.stuartsierra.component   :as component]
+     [star-tracker.system.kafka    :as sys.kafka]
      [taoensso.timbre              :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report)])
   (:import [org.apache.commons.io FileUtils])
@@ -24,7 +27,7 @@
 
 (def settings (atom {:json true}))
 
-(defonce server (atom nil))
+; (defonce server (atom nil))
 
 (def default-headers {"Expires" "0"
                       "Pragma" "no-cache"
@@ -50,19 +53,19 @@
     (catch Throwable t (error t))))
 
 (defn log-request
-  [req]
+  [req & [pipe]]
   (let [data (build-log-map req)]
-    (info "JSON" 
-      data
-      ; (generate-string data)
-      )))
+    (info "JSON" data)
+     
+    (go (>! pipe ["test" (generate-string data)]))))
 
 (defn redirect-request [req]
   {:status  204
    :headers default-headers})
 
-(defn img-request [req]
-  (log-request req)
+(defn img-request 
+  [req pipe]
+  (log-request req pipe)
   {:status  200
     :body (java.io.ByteArrayInputStream. pixel-img)
    :headers image-headers})
@@ -72,31 +75,72 @@
   {:status  204
    :headers default-headers})
 
-(defroutes app-routes
-  (GET "/" [] base-request)
-  (GET "/r" [] redirect-request)
-  (GET "/pixel.gif" [] img-request)
-  (route/not-found "<p>Page not found.</p>"))
 
-(defn start-up
-  [{:keys [port] :or {port 8080}}]
-  ; (reset! server (run-jetty (site #'app-routes) {:port port :join? true}))
-  (reset! server (run-server (site #'app-routes) {:port port}))
-    (info "Listening events now!...")
-  )
+; (defn start-up
+;   [{:keys [port] :or {port 8080}}]
+;   ; (reset! server (run-jetty (site #'app-routes) {:port port :join? true}))
+;   (reset! server (run-server (site #'app-routes) {:port port}))
+;     (info "Listening events now!...")
+;   )
 
-(defn stop-server []
-  (when-not (nil? @server)
-    ;; graceful shutdown: wait 100ms for existing requests to be finished
-    ;; :timeout is optional, when no timeout, stop immediately
-    (@server :timeout 100)
-    (reset! server nil)))
+; (defn stop-server []
+;   (when-not (nil? @server)
+;     ;; graceful shutdown: wait 100ms for existing requests to be finished
+;     ;; :timeout is optional, when no timeout, stop immediately
+;     (@server :timeout 100)
+;     (reset! server nil)))
+
+(defrecord HTTP [port kafka conf server]
+  component/Lifecycle
+
+  (start [this]
+    (info "Starting HTTP Component")
+    (let [pipe (:channel kafka)]
+      (try 
+        (defroutes app-routes
+          (GET "/"  base-request)
+          (GET "/r" [] redirect-request)
+          (GET "/pixel.gif" request (img-request request pipe))
+          (route/not-found "<p>Page not found.</p>"))
+
+        (let [server (run-server (site #'app-routes) {:port port})]
+          (info "Listening events now...")
+
+        (assoc this :server server))
+      (catch Throwable t 
+        (do 
+          (error t))))))
+
+  (stop [this]
+    ; (.stop server)
+    (server :timeout 100)
+    ))
+
+
+(defn http-server
+  [port]
+  (map->HTTP {:port port}))
+
+(defn app-system 
+  [options]
+  (let [{:keys [zookeeper port]} options]
+  (-> (component/system-map 
+        :kafka (sys.kafka/kafka-producer zookeeper)
+        :app (component/using 
+            (http-server port)
+            [:kafka]
+          )
+    ))
+  ))
 
 (defn -main
   "I don't do a whole lot ... yet."
-  [& args]
+  [port zk & args]
   (info "Arranging settings and logging..")
-  (let [settings {:port (Integer/parseInt (first args))}]
-    (reset! timbre/config log-base/log-config )
+  (reset! timbre/config log-base/log-config )
   (info "Starting up engines..")
-  (start-up settings)))
+  (let [settings {:port (Integer/parseInt port) :zookeeper zk}
+        sys (component/start (app-system settings))]
+    
+  ; (start-up settings)
+  ))

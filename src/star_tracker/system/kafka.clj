@@ -25,8 +25,10 @@
 
   (start [component]
     (try
-      (warn "Starting KAFKA PRODUCER Component")
-      (let [producing-channel (or prod-chan (chan))
+      (warn "Starting KAFKA PRODUCER Component" zookeeper)
+      ; (get-broker-list zookeeper)
+
+      (let [producing-channel (or prod-chan (chan 65532))
             brokers (get-broker-list zookeeper)
             producer-config {"metadata.broker.list" brokers
                            "serializer.class" "kafka.serializer.DefaultEncoder"
