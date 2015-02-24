@@ -57,7 +57,8 @@
   (let [data (build-log-map req)]
     (info "JSON" data)
      
-    (go (>! pipe ["test" (generate-string data)]))))
+    (go (>! pipe ["test" (generate-string data)]))
+    ))
 
 (defn redirect-request [req]
   {:status  204
@@ -75,21 +76,6 @@
   {:status  204
    :headers default-headers})
 
-
-; (defn start-up
-;   [{:keys [port] :or {port 8080}}]
-;   ; (reset! server (run-jetty (site #'app-routes) {:port port :join? true}))
-;   (reset! server (run-server (site #'app-routes) {:port port}))
-;     (info "Listening events now!...")
-;   )
-
-; (defn stop-server []
-;   (when-not (nil? @server)
-;     ;; graceful shutdown: wait 100ms for existing requests to be finished
-;     ;; :timeout is optional, when no timeout, stop immediately
-;     (@server :timeout 100)
-;     (reset! server nil)))
-
 (defrecord HTTP [port kafka conf server]
   component/Lifecycle
 
@@ -101,9 +87,13 @@
           (GET "/"  base-request)
           (GET "/r" [] redirect-request)
           (GET "/pixel.gif" request (img-request request pipe))
+          (GET "/ping" {:status  200 :body "pong" })
           (route/not-found "<p>Page not found.</p>"))
 
-        (let [server (run-server (site #'app-routes) {:port port})]
+        (let [
+          ; server (run-server (site #'app-routes) {:port port})
+          server (run-jetty (site #'app-routes) {:port port :join? true})
+          ]
           (info "Listening events now...")
 
         (assoc this :server server))
@@ -112,8 +102,8 @@
           (error t))))))
 
   (stop [this]
-    ; (.stop server)
-    (server :timeout 100)
+    (.stop server)
+    ; (server :timeout 100)
     ))
 
 
@@ -129,9 +119,7 @@
         :app (component/using 
             (http-server port)
             [:kafka]
-          )
-    ))
-  ))
+          )))))
 
 (defn -main
   "I don't do a whole lot ... yet."
