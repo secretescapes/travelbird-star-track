@@ -12,6 +12,7 @@
      [clojure.core.async :as async :refer [go >! chan]]
      [com.stuartsierra.component   :as component]
      [star-tracker.system.kafka    :as sys.kafka]
+     [star-tracker.system.kinesis  :as sys.kinesis]
      [taoensso.timbre              :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report)])
   (:import [org.apache.commons.io FileUtils])
@@ -48,6 +49,7 @@
        :m (:request-method req) ; for debugging purposes
        :serv (:server-name req)
        :uri (:uri req)
+       :body (body-as-string req)
        :headers (:headers req) ; in near future remove duplicates
      }
     (catch Throwable t (error t))))
@@ -71,23 +73,24 @@
     :body (java.io.ByteArrayInputStream. pixel-img)
    :headers image-headers})
 
-(defn base-request [req]
-  (info (build-log-map req))
+(defn base-request [req pipe]
+  ; (info (build-log-map req))
+  (log-request req pipe)
   {:status  204
    :headers default-headers})
 
-(defrecord HTTP [port kafka conf server]
+(defrecord HTTP [port pipe listener conf server]
   component/Lifecycle
 
   (start [this]
     (info "Starting HTTP Component")
-    (let [pipe (:channel kafka)]
+    (let [pipe (:channel pipe)]
       (try 
         (defroutes app-routes
-          (GET "/"  base-request)
+          (GET "/"  request (base-request request pipe))
           (GET "/r" [] redirect-request)
           (GET "/pixel.gif" request (img-request request pipe))
-          (GET "/ping" {:status  200 :body "pong" })
+          (GET "/ping" request {:status  200 :body "pong" })
           (route/not-found "<p>Page not found.</p>"))
 
         (let [
@@ -113,12 +116,14 @@
 
 (defn app-system 
   [options]
-  (let [{:keys [zookeeper port]} options]
+  (let [{:keys [zookeeper port aws-key aws-secret aws-endpoint aws-kinesis-stream]} options]
   (-> (component/system-map 
-        :kafka (sys.kafka/kafka-producer zookeeper)
+        ; :kafka (sys.kafka/kafka-producer zookeeper)
+        :pipe (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
+        ; :listener (sys.kinesis/kinesis-consumer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
         :app (component/using 
             (http-server port)
-            [:kafka]
+            [:pipe]
           )))))
 
 (defn -main
