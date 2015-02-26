@@ -1,7 +1,8 @@
 (ns star-tracker.core
   (:require 
-     [clojure.java.io :as io]
-     [org.httpkit.server          :refer [run-server]]
+     [clojure.tools.cli             :refer [parse-opts]]
+     [clojure.java.io               :as io]
+     [org.httpkit.server            :refer [run-server]]
      [star-tracker.utils           :refer :all]
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
@@ -125,14 +126,23 @@
             (http-server port)
             [:pipe]
           )))))
+(def cli-options 
+  [["-p" "--port PORT" "Port number"
+    :default 80
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
+    ]
+  )
 (defn -main
   "I don't do a whole lot ... yet."
   [port zk & args]
   (info "Arranging settings and logging..")
   (reset! timbre/config log-base/log-config )
+
   (info "Starting up engines..")
-  (let [settings {:port (Integer/parseInt port) :zookeeper zk}
+  (let [options (parse-opts args cli-options)
+        settings {:port (Integer/parseInt port) :zookeeper zk}
         sys (component/start (app-system settings))]
     
   ; (start-up settings)
