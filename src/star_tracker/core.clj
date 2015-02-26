@@ -117,33 +117,45 @@
 
 (defn app-system 
   [options]
-  (let [{:keys [zookeeper port aws-key aws-secret aws-endpoint aws-kinesis-stream]} options]
+  (let [{:keys [zookeeper port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
+      event-pipe (if (= pipe "kinesis")
+                    (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
+                    (sys.kafka/kafka-producer zookeeper))]
   (-> (component/system-map 
-        ; :kafka (sys.kafka/kafka-producer zookeeper)
-        :pipe (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
+        :pipe event-pipe
         ; :listener (sys.kinesis/kinesis-consumer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
         :app (component/using 
             (http-server port)
             [:pipe]
           )))))
+
 (def cli-options 
   [["-p" "--port PORT" "Port number"
-    :default 80
+    :default 10000
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+    ["-m" "--pipe PIPE" :default "kinesis"]
+    [nil "--zk ZOOKEEPER" :default "localhost:2181"]
+    [nil "--aws-key KEY" "AWS KEY" ]
+    [nil "--aws-secret SECRET" "AWS SECRET" ]
+    [nil "--aws-endpoint ENDPOINT" "Aws ENDPOINT to use" :defaut "eu-west-1"]
+    [nil "--aws-kinesis-stream STREAM" "AWS Kinesis Stream name" ]
 
     ]
   )
+
 (defn -main
   "I don't do a whole lot ... yet."
-  [port zk & args]
+  [& args]
   (info "Arranging settings and logging..")
   (reset! timbre/config log-base/log-config )
 
   (info "Starting up engines..")
-  (let [options (parse-opts args cli-options)
-        settings {:port (Integer/parseInt port) :zookeeper zk}
-        sys (component/start (app-system settings))]
+  (let [parsed-options (parse-opts args cli-options)
+        options (:options parsed-options)]
+    (info options)
     
   ; (start-up settings)
-  ))
+  (let [sys (component/start (app-system options))]
+    (info "System started..")
+    )))
