@@ -81,7 +81,7 @@
    :appenders
    {:standard-out
     {:doc "Prints to *out*/*err*. Enabled by default."
-     :min-level nil :enabled? true :async? false :rate-limit nil
+     :min-level :info :enabled? true :async? false :rate-limit nil
      :fn (fn [{:keys [error? output]}] ; Can use any appender args
            (binding [*out* (if error? *err* *out*)]
              (str-println output)))}

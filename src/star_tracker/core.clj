@@ -1,7 +1,8 @@
 (ns star-tracker.core
   (:require 
-     [clojure.java.io :as io]
-     [org.httpkit.server          :refer [run-server]]
+     [clojure.tools.cli             :refer [parse-opts]]
+     [clojure.java.io               :as io]
+     [org.httpkit.server            :refer [run-server]]
      [star-tracker.utils           :refer :all]
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
@@ -12,6 +13,7 @@
      [clojure.core.async :as async :refer [go >! chan]]
      [com.stuartsierra.component   :as component]
      [star-tracker.system.kafka    :as sys.kafka]
+     [star-tracker.system.kinesis  :as sys.kinesis]
      [taoensso.timbre              :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report)])
   (:import [org.apache.commons.io FileUtils])
@@ -48,6 +50,7 @@
        :m (:request-method req) ; for debugging purposes
        :serv (:server-name req)
        :uri (:uri req)
+       :body (body-as-string req)
        :headers (:headers req) ; in near future remove duplicates
      }
     (catch Throwable t (error t))))
@@ -71,23 +74,24 @@
     :body (java.io.ByteArrayInputStream. pixel-img)
    :headers image-headers})
 
-(defn base-request [req]
-  (info (build-log-map req))
+(defn base-request [req pipe]
+  ; (info (build-log-map req))
+  (log-request req pipe)
   {:status  204
    :headers default-headers})
 
-(defrecord HTTP [port kafka conf server]
+(defrecord HTTP [port pipe listener conf server]
   component/Lifecycle
 
   (start [this]
     (info "Starting HTTP Component")
-    (let [pipe (:channel kafka)]
+    (let [pipe (:channel pipe)]
       (try 
         (defroutes app-routes
-          (GET "/"  base-request)
+          (GET "/"  request (base-request request pipe))
           (GET "/r" [] redirect-request)
           (GET "/pixel.gif" request (img-request request pipe))
-          (GET "/ping" {:status  200 :body "pong" })
+          (GET "/ping" request {:status  200 :body "pong" })
           (route/not-found "<p>Page not found.</p>"))
 
         (let [
@@ -113,22 +117,45 @@
 
 (defn app-system 
   [options]
-  (let [{:keys [zookeeper port]} options]
+  (let [{:keys [zookeeper port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
+      event-pipe (if (= pipe "kinesis")
+                    (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
+                    (sys.kafka/kafka-producer zookeeper))]
   (-> (component/system-map 
-        :kafka (sys.kafka/kafka-producer zookeeper)
+        :pipe event-pipe
+        ; :listener (sys.kinesis/kinesis-consumer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
         :app (component/using 
             (http-server port)
-            [:kafka]
+            [:pipe]
           )))))
+
+(def cli-options 
+  [["-p" "--port PORT" "Port number"
+    :default 10000
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+    ["-m" "--pipe PIPE" :default "kinesis"]
+    [nil "--zk ZOOKEEPER" :default "localhost:2181"]
+    [nil "--aws-key KEY" "AWS KEY" ]
+    [nil "--aws-secret SECRET" "AWS SECRET" ]
+    [nil "--aws-endpoint ENDPOINT" "Aws ENDPOINT to use" :defaut "eu-west-1"]
+    [nil "--aws-kinesis-stream STREAM" "AWS Kinesis Stream name" ]
+
+    ]
+  )
 
 (defn -main
   "I don't do a whole lot ... yet."
-  [port zk & args]
+  [& args]
   (info "Arranging settings and logging..")
   (reset! timbre/config log-base/log-config )
+
   (info "Starting up engines..")
-  (let [settings {:port (Integer/parseInt port) :zookeeper zk}
-        sys (component/start (app-system settings))]
+  (let [parsed-options (parse-opts args cli-options)
+        options (:options parsed-options)]
+    (info options)
     
   ; (start-up settings)
-  ))
+  (let [sys (component/start (app-system options))]
+    (info "System started..")
+    )))
