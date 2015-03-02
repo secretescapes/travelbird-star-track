@@ -8,7 +8,7 @@
      [ring.adapter.jetty           :refer [run-jetty]]
      [cheshire.core                :refer :all]
      [compojure.route              :as route]
-     [compojure.core               :refer [defroutes GET POST DELETE ANY context]]
+     [compojure.core               :refer [defroutes GET POST DELETE ANY HEAD context]]
      [compojure.handler            :refer [site]]
      [clojure.core.async :as async :refer [go >! chan]]
      [com.stuartsierra.component   :as component]
@@ -88,6 +88,7 @@
     (let [pipe (:channel pipe)]
       (try 
         (defroutes app-routes
+          (HEAD "/" [] "")
           (GET "/"  request (base-request request pipe))
           (GET "/r" [] redirect-request)
           (GET "/pixel.gif" request (img-request request pipe))
@@ -96,7 +97,7 @@
 
         (let [
           ; server (run-server (site #'app-routes) {:port port})
-          server (run-jetty (site #'app-routes) {:port port :join? true})
+          server (run-jetty (site #'app-routes) {:port port :join? false})
           ]
           (info "Listening events now...")
 
@@ -123,7 +124,6 @@
                     (sys.kafka/kafka-producer zookeeper))]
   (-> (component/system-map 
         :pipe event-pipe
-        ; :listener (sys.kinesis/kinesis-consumer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
         :app (component/using 
             (http-server port)
             [:pipe]
@@ -149,7 +149,7 @@
   [& args]
   (info "Arranging settings and logging..")
   (reset! timbre/config log-base/log-config )
-
+  (timbre/set-level! :info)
   (info "Starting up engines..")
   (let [parsed-options (parse-opts args cli-options)
         options (:options parsed-options)]
