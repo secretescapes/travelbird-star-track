@@ -52,6 +52,7 @@ def deploy(restart=True):
 
   with cd(folder):
     put(img,img,use_sudo=True)
+    put("log4j.properties","log4j.properties",use_sudo=True)
     put("target/uberjar/star-tracker.jar", new_jar,use_sudo=True)
     sudo("mv {} {}".format(new_jar, jar_file))
 

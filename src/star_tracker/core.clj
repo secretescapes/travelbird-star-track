@@ -144,7 +144,7 @@
   "I don't do a whole lot ... yet."
   [& args]
   (info "Arranging settings and logging..")
-  (reset! timbre/config log-base/log-config )
+  ; (reset! timbre/config log-base/log-config )
   (timbre/set-level! :info)
   (info "Starting up engines..")
   (let [parsed-options (parse-opts args cli-options)

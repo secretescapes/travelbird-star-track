@@ -22,6 +22,7 @@
   :java-agents [[com.newrelic.agent.java/newrelic-agent "2.19.0"]]
   :main star-tracker.core
   :uberjar-name "star-tracker.jar"
+  :jvm-opts ["-Dlog4j.configuration=file:./log4j.properties"]
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
       :dev {:plugins [[lein-midje "3.1.3"]]}
