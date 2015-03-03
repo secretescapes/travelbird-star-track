@@ -7,7 +7,7 @@
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
      [cheshire.core                :refer :all]
-     [compojure.route              :as route]
+     [compojure.route              :as route :refer [resources]]
      [compojure.core               :refer [defroutes GET POST DELETE ANY HEAD context]]
      [compojure.handler            :refer [site]]
      [clojure.core.async :as async :refer [go >! chan]]
@@ -15,7 +15,7 @@
      [star-tracker.system.kafka    :as sys.kafka]
      [star-tracker.system.kinesis  :as sys.kinesis]
      [taoensso.timbre              :as timbre
-           :refer (log  trace  debug  info  warn  error  fatal  report)])
+           :refer (log  trace  debug  info  warn  error  fatal  report sometimes)])
   (:import [org.apache.commons.io FileUtils])
   (:gen-class))
 
@@ -28,8 +28,6 @@
 ; (reset! server (run-server (site #'app-routes) {:port port}))
 
 (def settings (atom {:json true}))
-
-; (defonce server (atom nil))
 
 (def default-headers {"Expires" "0"
                       "Pragma" "no-cache"
@@ -58,8 +56,7 @@
 (defn log-request
   [req & [pipe]]
   (let [data (build-log-map req)]
-    (info "JSON" data)
-     
+    (sometimes 0.1 data)
     (go (>! pipe ["test" (generate-string data)]))
     ))
 
@@ -75,7 +72,6 @@
    :headers image-headers})
 
 (defn base-request [req pipe]
-  ; (info (build-log-map req))
   (log-request req pipe)
   {:status  204
    :headers default-headers})
@@ -88,8 +84,10 @@
     (let [pipe (:channel pipe)]
       (try 
         (defroutes app-routes
+          (resources "/")
           (HEAD "/" [] "")
           (GET "/"  request (base-request request pipe))
+          (GET "/report"  request (base-request request pipe))
           (GET "/r" [] redirect-request)
           (GET "/pixel.gif" request (img-request request pipe))
           (GET "/ping" request {:status  200 :body "pong" })
@@ -140,9 +138,7 @@
     [nil "--aws-secret SECRET" "AWS SECRET" ]
     [nil "--aws-endpoint ENDPOINT" "Aws ENDPOINT to use" :defaut "eu-west-1"]
     [nil "--aws-kinesis-stream STREAM" "AWS Kinesis Stream name" ]
-
-    ]
-  )
+    ])
 
 (defn -main
   "I don't do a whole lot ... yet."
