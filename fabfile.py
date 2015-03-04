@@ -56,11 +56,11 @@ def deploy(restart=True):
     put("target/uberjar/star-tracker.jar", new_jar,use_sudo=True)
     sudo("mv {} {}".format(new_jar, jar_file))
 
-  put('config/supervisor/startrack.conf', '/etc/supervisor/conf.d/startrack.conf',use_sudo=True)
+  # put('config/supervisor/startrack.conf', '/etc/supervisor/conf.d/startrack.conf',use_sudo=True)
   
   sudo("supervisorctl reread")
-  sudo("supervisorctl update")
-  if restart:
-    sudo("supervisorctl restart prod_startrack")
+  # sudo("supervisorctl update")
+  # if restart:
+    # sudo("supervisorctl restart prod_startrack")
 
     # put('target/%s' % jar_file, "new-" + jar_file  )

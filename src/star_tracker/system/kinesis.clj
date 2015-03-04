@@ -6,7 +6,7 @@
     [clojure.core.async                     :as async :refer [alts! go chan]]
     [com.stuartsierra.component             :as component]
     [taoensso.timbre                        :as timbre
-         :refer (log  trace  debug  info  warn  error  fatal  report)])
+         :refer (log  trace  debug  info  warn  error  fatal  report sometimes)])
   (:import [java.util UUID]))
 
 
@@ -22,8 +22,8 @@
         (go (while true
           (let [[[topic msg] ch] (alts! [producing-channel])]
             (let [event-id (UUID/randomUUID)]
-              (info (format "Publishing event-id %s -> %s" event-id msg))
-            (kinesis/put-record aws-kinesis-stream msg event-id)))))
+              (sometimes 0.01 (format "Publishing event-id %s -> %s" event-id msg))
+              (kinesis/put-record aws-kinesis-stream msg event-id)))))
          (assoc component :channel producing-channel))
       (catch Throwable t 
         (do 

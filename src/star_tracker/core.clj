@@ -116,10 +116,10 @@
 
 (defn app-system 
   [options]
-  (let [{:keys [zookeeper port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
+  (let [{:keys [zk port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
       event-pipe (if (= pipe "kinesis")
                     (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
-                    (sys.kafka/kafka-producer zookeeper))]
+                    (sys.kafka/kafka-producer zk))]
   (-> (component/system-map 
         :pipe event-pipe
         :app (component/using 
