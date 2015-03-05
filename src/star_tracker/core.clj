@@ -30,6 +30,10 @@
 
 (def pixel-img (FileUtils/readFileToByteArray (io/file "1x1.png")))
 
+(def utc-formatter (doto
+                    (java.text.SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                    (.setTimeZone (java.util.TimeZone/getTimeZone "UTC"))))
+
 (defn build-log-map
   [req]
   (let [ts (java.util.Date.)]
@@ -44,6 +48,8 @@
        :uri (:uri req)
        :body (body-as-string req)
        :headers (:headers req) ; in near future remove duplicates
+       :time (.format utc-formatter ts)
+       :epoch (str (.getTime ts))
      }
     (catch Throwable t (error t)))))
 
