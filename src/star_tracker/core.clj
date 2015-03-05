@@ -6,6 +6,7 @@
      [star-tracker.utils           :refer :all]
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
+     [ring.middleware.params       :refer [wrap-params]]
      [cheshire.core                :refer :all]
      [compojure.route              :as route :refer [resources]]
      [compojure.core               :refer [defroutes GET POST DELETE ANY HEAD context]]
@@ -19,14 +20,6 @@
   (:import [org.apache.commons.io FileUtils])
   (:gen-class))
 
-; http-kit keys
-; ==========
-; :remote-addr :headers :async-channel :server-port :content-length 
-; :websocket? :content-type :character-encoding :uri :server-name :query-string :body :scheme :request-method
-; (debug (select-keys req [:headers]))
-; [org.httpkit.server :refer [run-server]]
-; (reset! server (run-server (site #'app-routes) {:port port}))
-
 (def settings (atom {:json true}))
 
 (def default-headers {"Expires" "0"
@@ -39,8 +32,9 @@
 
 (defn build-log-map
   [req]
+  (let [ts (java.util.Date.)]
   (try 
-      {:qs (:query-string req)
+      {:params (:params req)
        :ip (remove nil? [(:remote-addr req) (get-in req [:headers "x-real-ip"])])
        :host (get-in req [:headers "host"])
        :ua (get-in req [:headers "user-agent"])
@@ -51,7 +45,7 @@
        :body (body-as-string req)
        :headers (:headers req) ; in near future remove duplicates
      }
-    (catch Throwable t (error t))))
+    (catch Throwable t (error t)))))
 
 (defn log-request
   [req & [pipe]]
@@ -93,10 +87,16 @@
           (GET "/ping" request {:status  200 :body "pong" })
           (route/not-found "<p>Page not found.</p>"))
 
-        (let [
-          ; server (run-server (site #'app-routes) {:port port})
-          server (run-jetty (site #'app-routes) {:port port :join? false})
-          ]
+        (def http-handler
+          (site #'app-routes))
+
+        (def app
+          (-> http-handler
+            (wrap-params)
+            ))
+
+        (let [server (run-jetty app {:port port :join? false})]
+
           (info "Listening events now...")
 
         (assoc this :server server))
@@ -144,7 +144,7 @@
   "I don't do a whole lot ... yet."
   [& args]
   (info "Arranging settings and logging..")
-  ; (reset! timbre/config log-base/log-config )
+  (reset! timbre/config log-base/log-config)
   (timbre/set-level! :info)
   (info "Starting up engines..")
   (let [parsed-options (parse-opts args cli-options)
