@@ -7,7 +7,6 @@
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
      [ring.middleware.params       :refer [wrap-params]]
-     [cheshire.core                :refer :all]
      [compojure.route              :as route :refer [resources]]
      [compojure.core               :refer [defroutes GET POST DELETE ANY HEAD context]]
      [compojure.handler            :refer [site]]
@@ -153,8 +152,7 @@
   (reset! timbre/config log-base/log-config)
   (timbre/set-level! :info)
   (info "Starting up engines..")
-  (let [parsed-options (parse-opts args cli-options)
-        options (:options parsed-options)]
+  (let [{:keys [options]} (parse-opts args cli-options)]
     (info options)
     
   ; (start-up settings)

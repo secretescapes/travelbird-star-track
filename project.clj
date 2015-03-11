@@ -1,8 +1,8 @@
 (defproject star-tracker "0.1.2"
   :description "Event collector"
-  :url "http://example.com/FIXME"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :url "http://engineering.travelbird.com/open-source/star-tracker"
+  :license {:name "MIT"
+            :url "http://github.com/travelbird/star-tracker/tree/master/LICENCE"}
   :dependencies [
     [org.clojure/clojure "1.6.0"]
     [org.clojure/core.memoize "0.5.6"]
