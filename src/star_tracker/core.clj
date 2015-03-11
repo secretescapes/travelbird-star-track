@@ -7,6 +7,7 @@
      [star-tracker.log             :as log-base]
      [ring.adapter.jetty           :refer [run-jetty]]
      [ring.middleware.params       :refer [wrap-params]]
+     [cheshire.core                :refer [generate-string]]
      [compojure.route              :as route :refer [resources]]
      [compojure.core               :refer [defroutes GET POST DELETE ANY HEAD context]]
      [compojure.handler            :refer [site]]
