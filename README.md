@@ -12,6 +12,16 @@ FIXME: explanation
 
     $ java -jar star-tracker.jar [port]
 
+# Setup
+
+
+Increase limits in ```/etc/security/limits.conf``` with the following settings
+
+nginx       soft    nofile  10000
+nginx       hard    nofile  30000
+
+
+
 ## License
 
 Copyright (c) 2015 TravelBird

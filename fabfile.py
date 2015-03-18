@@ -77,6 +77,11 @@ def app_folder():
   sudo("mkdir -p {}".format(folder))
 
 @task
+def tracker_js():
+  sudo("mkdir -p {}/public/js".format(folder))
+  put("resources/public/js/io.min.js","{}/public/js/io.min.js".format(folder),use_sudo=True)
+
+@task
 @parallel
 def deploy(restart=True):
   app_folder()

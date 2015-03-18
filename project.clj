@@ -14,6 +14,8 @@
     [http-kit "2.1.16"]
     [com.taoensso/timbre "3.3.1-1cd4b70" :exclusions [org.clojure/tools.reader]]
     [cheshire "5.4.0"]
+    [metrics-clojure "2.4.0"]
+    [com.climate/claypoole "0.4.0"]
     [clj-kafka/clj-kafka "0.2.8-0.8.1.1"]
     [amazonica "0.3.18" :exclusions [com.taoensso/encore org.clojure/tools.reader com.taoensso/nippy]]
     [com.taoensso/nippy "2.7.0"]

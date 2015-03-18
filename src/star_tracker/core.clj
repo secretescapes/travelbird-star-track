@@ -13,12 +13,24 @@
      [compojure.handler            :refer [site]]
      [clojure.core.async :as async :refer [go >! chan]]
      [com.stuartsierra.component   :as component]
+     [metrics.core                           :refer [new-registry]]
+     [metrics.meters                         :refer (meter mark! defmeter rates)]
+     [metrics.histograms                     :refer [defhistogram update! percentiles mean std-dev number-recorded]]
+     [metrics.timers                         :refer [deftimer time!] :as timers]
+     [metrics.reporters.console              :as console]
+     [metrics.reporters.jmx                  :as jmx]
      [star-tracker.system.kafka    :as sys.kafka]
      [star-tracker.system.kinesis  :as sys.kinesis]
      [taoensso.timbre              :as timbre
            :refer (log  trace  debug  info  warn  error  fatal  report sometimes)])
   (:import [org.apache.commons.io FileUtils])
   (:gen-class))
+
+(defmeter  message-ingested )
+(defmeter  message-published )
+
+(def JR (jmx/reporter {}))
+(def CR (console/reporter {}))
 
 (def settings (atom {:json true}))
 
@@ -57,6 +69,7 @@
   [req & [pipe]]
   (let [data (build-log-map req)]
     (sometimes 0.1 data)
+    (mark! message-ingested)
     (go (>! pipe ["test" (generate-string data)]))
     ))
 
@@ -111,10 +124,7 @@
           (error t))))))
 
   (stop [this]
-    (.stop server)
-    ; (server :timeout 100)
-    ))
-
+    (.stop server)))
 
 (defn http-server
   [port]
@@ -124,7 +134,8 @@
   [options]
   (let [{:keys [zk port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
       event-pipe (if (= pipe "kinesis")
-                    (sys.kinesis/kinesis-producer (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream]))
+                    (sys.kinesis/kinesis-producer (merge {:message-published-meter message-published }
+                      (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream])))
                     (sys.kafka/kafka-producer zk))]
   (-> (component/system-map 
         :pipe event-pipe
@@ -155,7 +166,10 @@
   (info "Starting up engines..")
   (let [{:keys [options]} (parse-opts args cli-options)]
     (info options)
-    
+  
+  (jmx/start JR)
+  ; report to console in every 100 seconds
+  (console/start CR 10)
   ; (start-up settings)
   (let [sys (component/start (app-system options))]
     (info "System started..")
