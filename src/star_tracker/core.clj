@@ -22,12 +22,18 @@
      [star-tracker.system.kafka    :as sys.kafka]
      [star-tracker.system.kinesis  :as sys.kinesis]
      [taoensso.timbre              :as timbre
-           :refer (log  trace  debug  info  warn  error  fatal  report sometimes)])
+           :refer (log trace debug info warn error fatal report sometimes)])
   (:import [org.apache.commons.io FileUtils])
   (:gen-class))
 
 (defmeter  message-ingested )
 (defmeter  message-published )
+(defmeter  message-publish-error )
+(def meters {
+  :publish message-published
+  :ingest message-ingested
+  :publish-error message-publish-error
+  })
 
 (def JR (jmx/reporter {}))
 (def CR (console/reporter {}))
@@ -134,7 +140,7 @@
   [options]
   (let [{:keys [zk port aws-key aws-secret aws-endpoint aws-kinesis-stream pipe]} options
       event-pipe (if (= pipe "kinesis")
-                    (sys.kinesis/kinesis-producer (merge {:message-published-meter message-published }
+                    (sys.kinesis/kinesis-producer (merge {:meters meters }
                       (select-keys options [:aws-key :aws-secret :aws-endpoint :aws-kinesis-stream])))
                     (sys.kafka/kafka-producer zk))]
   (-> (component/system-map 
@@ -143,6 +149,9 @@
             (http-server port)
             [:pipe]
           )))))
+
+(def log-levels [:trace :debug :info :warn :error :fatal :report])
+(def log-level-map (zipmap (range (count log-levels)) log-levels))
 
 (def cli-options 
   [["-p" "--port PORT" "Port number"
@@ -155,6 +164,10 @@
     [nil "--aws-secret SECRET" "AWS SECRET" ]
     [nil "--aws-endpoint ENDPOINT" "Aws ENDPOINT to use" :defaut "eu-west-1"]
     [nil "--aws-kinesis-stream STREAM" "AWS Kinesis Stream name" ]
+    [nil "--stats-interval INTERVAL" "How frequently publish stats" :default 10]
+    [nil "--log-level LEVEL" :default 2 ; INFO
+            :parse-fn #(Integer/parseInt %)
+            :validate [#(<= 0 % 6) (str "Must be a number between 0 and 6. Mapping " log-level-map)]]
     ])
 
 (defn -main
@@ -162,15 +175,28 @@
   [& args]
   (info "Arranging settings and logging..")
   (reset! timbre/config log-base/log-config)
-  (timbre/set-level! :info)
-  (info "Starting up engines..")
-  (let [{:keys [options]} (parse-opts args cli-options)]
-    (info options)
   
-  (jmx/start JR)
-  ; report to console in every 100 seconds
-  (console/start CR 10)
-  ; (start-up settings)
-  (let [sys (component/start (app-system options))]
-    (info "System started..")
-    )))
+  (info "Starting up engines..")
+  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)
+      log-level (get log-level-map (int (:log-level options)))]
+
+    (info log-level)
+
+    (when (:help options)
+      (println summary)
+      (System/exit 0))
+
+    (when errors
+      (println errors)
+      (System/exit 1))
+
+    (timbre/set-level! log-level)
+    (info options)
+
+    (jmx/start JR)
+    ; report to console in every 100 seconds
+    (console/start CR (:stats-interval options))
+
+    (let [sys (component/start (app-system options))]
+      (info "System started..")
+      )))

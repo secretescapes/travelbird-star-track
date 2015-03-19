@@ -8,18 +8,17 @@ Track/Collect events
 
 ## Usage
 
-FIXME: explanation
-
-    $ java -jar star-tracker.jar [port]
+    $ java -jar star-tracker.jar -p [port]
 
 # Setup
 
 
 Increase limits in ```/etc/security/limits.conf``` with the following settings
 
-nginx       soft    nofile  10000
+```
+nginx       soft    nofile  10000  
 nginx       hard    nofile  30000
-
+```
 
 
 ## License

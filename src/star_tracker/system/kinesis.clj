@@ -8,18 +8,25 @@
     [com.climate.claypoole                  :as cp]
     [metrics.meters                         :refer (meter mark! defmeter rates)]
     [taoensso.timbre                        :as timbre
-         :refer (log  trace  debug  info  warn  error  fatal  report sometimes)])
+         :refer (log trace debug info warn error fatal report sometimes)])
   (:import [java.util UUID]))
 
 (defn send-record
-  [stream publish-meter msg]
+  [stream meters msg]
   (let [event-id (UUID/randomUUID)]
     ; (sometimes 0.1 (format "Publishing event-id %s -> %s" event-id msg))
-    (kinesis/put-record stream msg event-id)
-    (mark! publish-meter)
-  ))
+    (try
+      (debug stream msg)
+      (kinesis/put-record stream msg event-id)
+      (mark! (:publish meters))
+    (catch Throwable t
+      (do
+        (mark! (:publish-error meters))
+        (error t)
+        (info msg)
+        )))))
 
-(defrecord KinesisProducer [aws-key aws-secret aws-endpoint aws-kinesis-stream message-published-meter prod-chan channel]
+(defrecord KinesisProducer [aws-key aws-secret aws-endpoint aws-kinesis-stream meters prod-chan channel]
   component/Lifecycle
 
   (start [component]
@@ -29,9 +36,13 @@
 
       (let [worker-pool (cp/threadpool 10)
             producing-channel (chan 65532)
-            sender (partial send-record aws-kinesis-stream message-published-meter)]
+            sender (partial send-record aws-kinesis-stream meters)]
         (go (while true
           (let [[[topic msg] ch] (alts! [producing-channel])]
+            ;; use a thread-pool to send messages to Kinesis
+            ;; otherwise under high load, we are going to drop messages
+            ;; till we have enough capacity to cope with the load (AWS Auto Scaling)
+            ;; Current Kinesis latency is 20ms.
             (cp/future worker-pool (sender msg)))))
          (assoc component :channel producing-channel))
       (catch Throwable t 
